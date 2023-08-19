@@ -1,0 +1,67 @@
+variables:
+  GIT_SUBMODULE_STRATEGY: recursive
+
+default:
+  image: python:3.11
+  before_script:
+    - apt-get update && apt-get install -y curl zip
+    - curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.38.0/install.sh | bash
+    - export NVM_DIR="$HOME/.nvm"
+    - '[ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"'
+    - nvm install 16
+    - nvm use 16
+    - npm install -g zx
+    - pip install --upgrade pip
+    - pip install -r requirements.txt
+    - npm install
+
+
+stages:
+  - build
+  - archive
+
+daily_job:
+  stage: build
+  timeout: 6h
+  tags:
+    - saas-linux-medium-amd64
+  script:
+    - mkdir -p out/1D
+    - timeout 5.5h zx ./quick_comparison.mjs --rebalance 1D || echo "Process timed out"
+  artifacts:
+    paths:
+      - out/1D/
+    expire_in: 1 week
+    when: always
+
+weekly_job:
+  stage: build
+  script:
+    - mkdir -p out/1W
+    - zx ./quick_comparison.mjs --rebalance 1W
+  artifacts:
+    paths:
+      - out/1W/
+    expire_in: 1 week
+    when: always
+
+monthly_job:
+  stage: build
+  script:
+    - mkdir -p out/1M
+    - zx ./quick_comparison.mjs --rebalance 1M
+  artifacts:
+    paths:
+      - out/1M/
+    expire_in: 1 week
+    when: always
+  
+archive_job:
+  stage: archive
+  script:
+    - zip -r out.zip out/
+  artifacts:
+    paths:
+      - out.zip
+    expire_in: 1 week
+    when: always

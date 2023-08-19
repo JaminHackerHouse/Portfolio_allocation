@@ -1,12 +1,12 @@
 from .GeneralOptimization import GeneralOptimization
 import numpy as np
 import pandas as pd
-from numpy.linalg import inv, pinv
 from scipy.optimize import minimize
 
 
 class RiskParity(GeneralOptimization):
-    def __init__(self, df, mcaps=None):
+    def __init__(self, df, mcaps=None, weight_bounds=(0, 1)):
+        self.weight_bounds = weight_bounds
         super().__init__(df, mcaps)
 
     # risk budgeting optimization
@@ -39,13 +39,17 @@ class RiskParity(GeneralOptimization):
         return np.sum(x) - 1.0
 
     def long_only_constraint(self, x):
-        return x
+        return self.weight_bounds[1] - x
+
+    def short_only_constraint(self, x):
+        return x - self.weight_bounds[0]  # Ensuring weights are not less than
 
     def get_weights(self):
         # 1 / N risk portfolio
         x_t = [1 / self.df.shape[1]] * self.df.shape[1]
         cons = (
             {"type": "eq", "fun": self.total_weight_constraint},
+            {"type": "ineq", "fun": self.short_only_constraint},
             {"type": "ineq", "fun": self.long_only_constraint},
         )
 
@@ -58,7 +62,7 @@ class RiskParity(GeneralOptimization):
             args=[V, x_t],
             method="SLSQP",
             constraints=cons,
-            options={"disp": True, "ftol": 1e-12},
+            options={"disp": True, "ftol": 1e-9},
         )
         weights = pd.Series(res.x, index=self.df.columns)
         return weights

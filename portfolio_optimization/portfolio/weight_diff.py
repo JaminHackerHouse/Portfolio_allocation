@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 
 
 def weight_diff(
@@ -17,6 +18,8 @@ def weight_diff(
         list or dict: A list of tuples containing the key, operation, and percentage change for each operation to perform.
                       Or, if applied=True, a dict of adjusted new_weights.
     """
+    if applied is True and threshold == 0:
+        return new_weights
     # Get the set of all keys
     all_keys = set(list(old_weights.keys()) + list(new_weights.keys()))
 
@@ -55,5 +58,14 @@ def weight_diff(
                 operation = "Cover"
 
         operations.append((key, operation, abs_diff / total_change))
+
+    # Check if the sum of the percentages is somewhat close to 1
+    assert np.isclose(adjusted_new_weights.sum(), 1, 0.1), (
+        f"Sum of adjsuted weights is {adjusted_new_weights.sum()}, "
+        f"but expected value is 1."
+    )
+
+    # Normalize the percentages so that they sum to 1.
+    adjusted_new_weights = adjusted_new_weights / adjusted_new_weights.sum()
 
     return adjusted_new_weights if applied else operations
